@@ -1,0 +1,5 @@
+1,Pizza Margherita,Molho de tomate, queijo e manjericão,35.50
+2,Hamburguer Clássico,Pão, carne, queijo, alface e tomate,22.00
+3,Sushi (8 peças),Salmão fresco e arroz,18.00
+4,Coca-Cola Lata,Refrigerante de cola 350ml,6.00
+5,Pizza Pepperoni,Molho de tomate, queijo e pepperoni,40.00
