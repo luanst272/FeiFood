@@ -12,7 +12,7 @@ arq_avaliacoes = "avaliacoes.txt"
 def cadastrar_usuario():
     print("\n--- Cadastro de Novo Usuário ---")
     login = input("Digite o nome de usuário (login): ")
-    senha = input("Digite a senha: ")
+    senha = input("Digite o senha: ")
 
     try:
         with open(arq_usuarios, "a", encoding="utf-8") as f:
@@ -24,7 +24,7 @@ def cadastrar_usuario():
 def login_usuario():
     print("\n--- Login de Usuário ---")
     login = input("Digite o nome de usuário (login): ")
-    senha = input("Digite a senha: ")
+    senha = input("Digite o senha: ")
 
     if not os.path.exists(arq_usuarios):
         print("Nenhum usuário cadastrado. Por favor, cadastre-se primeiro.")
@@ -33,11 +33,13 @@ def login_usuario():
     try:
         with open(arq_usuarios, "r", encoding="utf-8") as f:
             for linha in f:
-                login_arq, senha_arq = linha.strip().split(",")
-                
-                if login == login_arq and senha == senha_arq:
-                    print(f"\nLogin bem-sucedido! Bem-vindo(a), {login_arq}!")
-                    return login_arq 
+                partes = linha.strip().split(",")
+                # --- CORREÇÃO (ignora linhas em branco) ---
+                if len(partes) == 2:
+                    login_arq, senha_arq = partes
+                    if login == login_arq and senha == senha_arq:
+                        print(f"\nLogin bem-sucedido! Bem-vindo(a), {login_arq}!")
+                        return login_arq 
             
             print("Usuário ou senha incorretos.")
             return None 
@@ -93,7 +95,8 @@ def listar_alimentos():
                     descricao = ",".join(partes[2:-1]) 
                     print(f"{id_alimento:<3} | {nome:<20} | {preco:<10} | {descricao}")
                 else:
-                    print(f"Aviso: Linha mal formatada no arquivo: {linha.strip()}")
+                    # Ignora linhas mal formatadas ou em branco
+                    pass
             
     except Exception as e:
         print(f"Erro ao ler cardápio: {e}")
@@ -144,9 +147,12 @@ def obter_proximo_id_pedido():
             for linha in f:
                 partes = linha.strip().split(",")
                 if len(partes) == 2:
-                    id_pedido = int(partes[0])
-                    if id_pedido > ultimo_id:
-                        ultimo_id = id_pedido
+                    try:
+                        id_pedido = int(partes[0])
+                        if id_pedido > ultimo_id:
+                            ultimo_id = id_pedido
+                    except ValueError:
+                        continue # Ignora linha se o ID não for um número
         return ultimo_id + 1
     except Exception:
         return 1001 
@@ -290,36 +296,53 @@ def ver_meus_pedidos(usuario):
     except Exception as e:
         print(f"Erro ao ler pedidos: {e}")
 
+# --- INÍCIO DA VERSÃO CORRETA E LIMPA ---
 def excluir_pedido(usuario):
     ver_meus_pedidos(usuario)
-    id_para_excluir = input("Digite o ID do pedido que deseja EXCLUIR: ")
+    id_para_excluir = input("Digite o ID do pedido que deseja EXCLUIR: ").strip()
     
     pedido_valido = False
+    
+    # --- Bloco 1: Validar se o pedido existe e é seu ---
     try:
         with open(arq_pedidos, "r", encoding="utf-8") as f:
             for linha in f:
-                id_ped, user = linha.strip().split(",")
-                if id_ped == id_para_excluir and user == usuario:
+                # Procura a combinação exata de ID e usuário
+                linha_esperada = f"{id_para_excluir},{usuario}"
+                
+                # .strip() remove \n e espaços
+                if linha.strip() == linha_esperada:
                     pedido_valido = True
                     break
     except FileNotFoundError:
         print("Arquivo de pedidos não encontrado.")
         return
 
+    # Se não encontrou...
     if not pedido_valido:
         print("ID de pedido inválido ou não pertence a você.")
         return
-    
-    # Excluir de 'pedidos.txt'
-    linhas_mantidas = []
-    with open(arq_pedidos, "r", encoding="utf-8") as f:
-        for linha in f:
-            if not linha.startswith(f"{id_para_excluir},"):
-                linhas_mantidas.append(linha)
-    with open(arq_pedidos, "w", encoding="utf-8") as f:
-        f.writelines(linhas_mantidas)
 
-    # Excluir de 'pedidos_itens.txt'
+    # --- Bloco 2: Se foi válido, reescrever os arquivos ---
+    
+    # Reescreve 'pedidos.txt' (excluindo a linha)
+    linhas_mantidas = []
+    try:
+        with open(arq_pedidos, "r", encoding="utf-8") as f:
+            for linha in f:
+                # Compara a linha sem o \n
+                linha_esperada = f"{id_para_excluir},{usuario}"
+                if linha.strip() != linha_esperada:
+                    linhas_mantidas.append(linha)
+        
+        with open(arq_pedidos, "w", encoding="utf-8") as f:
+            f.writelines(linhas_mantidas)
+            
+    except Exception as e:
+        print(f"Erro ao reescrever arquivo de pedidos: {e}")
+        return
+
+    # Limpar 'pedidos_itens.txt' (igual a antes)
     linhas_mantidas = []
     try:
         with open(arq_itens_pedido, "r", encoding="utf-8") as f:
@@ -331,7 +354,7 @@ def excluir_pedido(usuario):
     except FileNotFoundError:
         pass 
 
-    # Excluir de 'avaliacoes.txt'
+    # Limpar 'avaliacoes.txt' (igual a antes)
     linhas_mantidas = []
     try:
         with open(arq_avaliacoes, "r", encoding="utf-8") as f:
@@ -344,22 +367,26 @@ def excluir_pedido(usuario):
         pass
         
     print(f"Pedido {id_para_excluir} excluído com sucesso.")
+# --- FIM DA VERSÃO CORRETA ---
 
 # Avaliacoes
 
 def avaliar_pedido(usuario):
     print("\n--- Avaliar Pedido ---")
     ver_meus_pedidos(usuario)
-    id_para_avaliar = input("Digite o ID do pedido que deseja AVALIAR: ")
+    id_para_avaliar = input("Digite o ID do pedido que deseja AVALIAR: ").strip() # Adicionado .strip()
 
     pedido_valido = False
     try:
         with open(arq_pedidos, "r", encoding="utf-8") as f:
             for linha in f:
-                id_ped, user = linha.strip().split(",")
-                if id_ped == id_para_avaliar and user == usuario:
-                    pedido_valido = True
-                    break
+                partes = linha.strip().split(",")
+                # --- CORREÇÃO (ignora linhas em branco) ---
+                if len(partes) == 2:
+                    id_ped, user = partes
+                    if id_ped == id_para_avaliar and user == usuario:
+                        pedido_valido = True
+                        break
     except FileNotFoundError:
         print("Arquivo de pedidos não encontrado.")
         return
